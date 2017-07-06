@@ -1,79 +1,113 @@
 (ns datomic-tools.schema
-  (:use plumbing.core)
-  (:require [datomic.api :as d]
-            [schema.core :as s :refer [Keyword Str Any]]))
+  (:require [clojure.core :as c]
+            [clojure.spec :as s]
+            [datomic.api :as d]
+            [datomic-spec.core :as ds])
+  (:refer-clojure :exclude [defn]))
 
-(defn enum [enum]
-  {:db/id (d/tempid :db.part/user)
-   :db/ident enum})
+(defn- assoc-tempid [m partition]
+  (assoc m :db/id (d/tempid partition)))
 
-(defmacro func [name doc params & code]
-  `{:db/id (d/tempid :db.part/user)
-    :db/ident (keyword '~name)
-    :db/doc ~doc
-    :db/fn (d/function '{:lang "clojure" :params ~params
-                         :requires [[clojure.core.reducers]]
-                         :code (do ~@code)})})
+(defn- make-attr
+  "Assocs :db/id and :db.install/_attribute to the attr map."
+  [attr]
+  (-> (assoc-tempid attr :db.part/db)
+      (assoc :db.install/_attribute :db.part/db)))
 
-(def Def
-  [Any])
+(defn- make-fn
+  "Assocs :db/id to the fn map."
+  [fn]
+  (assoc-tempid fn :db.part/user))
 
-(def DefItem
-  [(s/one Keyword "attr")
-   (s/one Keyword "type")
-   s/Any])
+(defn- make-part
+  "Creates tx-data for a partition with ident."
+  [ident]
+  (-> {:db/ident ident}
+      (assoc-tempid :db.part/db)
+      (assoc :db.install/_partition :db.part/db)))
 
-(def TxMap
-  {:db/id Any
-   Any Any})
+(defonce ^:private attr-reg (atom {}))
 
-(def TxData
-  [Any])
+(c/defn reg-attr! [k attr]
+  (let [defaults {:db/cardinality :db.cardinality/one}]
+    (->> (assoc (merge defaults attr) :db/ident k)
+         (swap! attr-reg assoc k))))
 
-(defn- assoc-opt [opt]
-  (case opt
-    :id [:db/unique :db.unique/identity]
-    :unique [:db/unique :db.unique/value]
-    :index [:db/index true]
-    :fulltext [:db/fulltext true]
-    :many [:db/cardinality :db.cardinality/many]
-    :comp [:db/isComponent true]))
+(def defattr-args
+  (s/cat :k keyword? :doc-string (s/? string?)
+         :schema (s/keys* :req [:db/valueType])))
 
-(s/defn ^:private assoc-opts :- TxMap
-  [entity-map :- TxMap opts :- [Keyword]]
-  (into entity-map (map assoc-opt) opts))
+(s/fdef defattr
+  :args defattr-args)
 
-(s/defn ^:private build-attr-map :- TxMap
-  [entity-name :- Str def-item :- DefItem]
-  (let [[attr type & more] def-item
-        [opts doc] (if (string? (last more))
-                     [(butlast more) (last more)]
-                     [more])]
-    (-> {:db/id (d/tempid :db.part/db)
-         :db/ident (keyword entity-name (name attr))
-         :db/valueType (keyword "db.type" (name type))
-         :db/cardinality :db.cardinality/one
-         :db.install/_attribute :db.part/db}
-        (assoc-opts opts)
-        (assoc-when :db/doc doc))))
+(defmacro defattr
+  "Defines an attribute."
+  [& args]
+  (let [{:keys [k doc-string schema]} (s/conform defattr-args args)
+        schema (cond-> schema doc-string (assoc :db/doc doc-string))]
+    `(reg-attr! ~k ~schema)))
 
-(defn build-function [entity-name def-item]
-  (update-in def-item [:db/ident] #(keyword (str entity-name ".fn") (name %))))
+(defonce ^:private enum-reg (atom {}))
 
-(s/defn ^:private def-item-tx-builder [entity-name :- Str]
-  (fn [def-item]
-    (cond
-      (sequential? def-item)
-      (build-attr-map entity-name def-item)
+(c/defn reg-enum! [part constant]
+  (->> (assoc-tempid {:db/ident constant} part)
+       (swap! enum-reg assoc constant)))
 
-      (:db/fn def-item)
-      (build-function entity-name def-item)
+(def defenum-args
+  (s/cat :k keyword? :doc-string (s/? string?)
+         :constants (s/+ keyword?)))
 
-      :else def-item)))
+(s/fdef defenum
+  :args defenum-args)
 
-(s/defn ^:private build-entity-tx :- TxData
-  [tx :- TxData name :- Keyword def :- Def]
-  (into tx (map (def-item-tx-builder (clojure.core/name name))) def))
+(defmacro defenum [& args]
+  (let [{:keys [k doc-string constants]} (s/conform defenum-args args)
+        schema (cond-> {:db/valueType :db.type/ref}
+                       doc-string (assoc :db/doc doc-string))]
+    `(do
+       (reg-attr! ~k ~schema)
+       (doseq [c# ~constants]
+         (reg-enum! :db.part/user c#)))))
 
-(s/defn build-tx :- TxData [entities :- {Keyword Def}]
-  (reduce-kv build-entity-tx [] entities))
+(defonce ^:private fn-reg (atom {}))
+
+(c/defn reg-fn! [k schema]
+  (->> (assoc schema :db/ident k)
+       (swap! fn-reg assoc k)))
+
+(def defn-args
+  (s/cat :name symbol :doc-string (s/? string?)
+         :params (s/coll-of symbol? :kind vector?)
+         :code (s/+ any?)))
+
+(s/fdef defn
+  :args defn-args)
+
+(defmacro defn [& args]
+  (let [{:keys [name doc-string params code]} (s/conform defn-args args)
+        name (keyword name)
+        schema (cond-> {:db/fn `(d/function '{:lang "clojure" :params ~params
+                                              :requires [[clojure.core.reducers]]
+                                              :code (do ~@code)
+                                              })}
+                       doc-string (assoc :db/doc doc-string))]
+    `(reg-fn! ~name ~schema)))
+
+(defonce ^:private part-reg (atom #{}))
+
+(c/defn reg-part! [part]
+  (swap! part-reg conj part))
+
+(s/fdef defpart
+  :args (s/cat :part keyword?))
+
+(defmacro defpart [part]
+  `(reg-part! ~part))
+
+(s/fdef schema :args (s/cat) :ret ::ds/tx-data)
+
+(c/defn schema []
+  (-> (mapv make-attr (vals @attr-reg))
+      (into (map make-part) @part-reg)
+      (into (vals @enum-reg))
+      (into (map make-fn) (vals @fn-reg))))

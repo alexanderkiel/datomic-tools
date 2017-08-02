@@ -1,5 +1,4 @@
 (ns datomic-tools.pull
-  (:use plumbing.core)
   (:require [clojure.spec :as s]
             [datomic.api :as d]
             [datomic-spec.core :as ds]))
@@ -22,7 +21,7 @@
 (defn- transform-attr-spec
   [attr-spec]
   (if (map? attr-spec)
-    (map-vals transform-pattern attr-spec)
+    (into {} (map (fn [[k v]] [k (transform-pattern v)])) attr-spec)
     attr-spec))
 
 (s/fdef transform-pattern :args (s/cat :pattern ::ds/pattern))

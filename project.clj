@@ -5,7 +5,6 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [[org.clojars.akiel/datomic-spec "0.1-alpha2"]
-                 [org.clojure/clojure "1.9.0-alpha15"]
-                 [prismatic/plumbing "0.5.3"]]
+                 [org.clojure/clojure "1.9.0-alpha15"]]
 
   :profiles {:dev {:dependencies [[com.datomic/datomic-free "0.9.5407"]]}})

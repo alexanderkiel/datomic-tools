@@ -1,6 +1,6 @@
 (ns datomic-tools.schema
   (:require [clojure.core :as c]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [datomic.api :as d]
             [datomic-spec.core :as ds])
   (:refer-clojure :exclude [defn]))

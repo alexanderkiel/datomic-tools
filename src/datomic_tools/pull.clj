@@ -1,5 +1,5 @@
 (ns datomic-tools.pull
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [datomic.api :as d]
             [datomic-spec.core :as ds]))
 

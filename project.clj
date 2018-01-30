@@ -1,6 +1,6 @@
 (defproject org.clojars.akiel/datomic-tools "0.2-SNAPSHOT"
-  :description "Tools to work with Datomic."
-  :url "http://example.com/FIXME"
+  :description "Tools to work with Datomic"
+  :url "https://github.com/alexanderkiel/datomic-tools"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 

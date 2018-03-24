@@ -1,9 +1,8 @@
 (ns datomic-tools.schema
-  (:require [clojure.core :as c]
-            [clojure.spec.alpha :as s]
-            [datomic.api :as d]
-            [datomic-spec.core :as ds])
-  (:refer-clojure :exclude [defn]))
+  (:require
+    [clojure.spec.alpha :as s]
+    [datomic.api :as d]
+    [datomic-spec.core :as ds]))
 
 (defn- assoc-tempid [m partition]
   (assoc m :db/id (d/tempid partition)))
@@ -28,7 +27,7 @@
 
 (defonce ^:private attr-reg (atom {}))
 
-(c/defn reg-attr! [k attr]
+(defn reg-attr! [k attr]
   (let [defaults {:db/cardinality :db.cardinality/one}]
     (->> (assoc (merge defaults attr) :db/ident k)
          (swap! attr-reg assoc k))))
@@ -49,7 +48,7 @@
 
 (defonce ^:private enum-reg (atom {}))
 
-(c/defn reg-enum! [part constant]
+(defn reg-enum! [part constant]
   (->> (assoc-tempid {:db/ident constant} part)
        (swap! enum-reg assoc constant)))
 
@@ -63,7 +62,7 @@
 (defmacro defenum [& args]
   (let [{:keys [k doc-string constants]} (s/conform defenum-args args)
         schema (cond-> {:db/valueType :db.type/ref}
-                       doc-string (assoc :db/doc doc-string))]
+                 doc-string (assoc :db/doc doc-string))]
     `(do
        (reg-attr! ~k ~schema)
        (doseq [c# ~constants]
@@ -71,31 +70,31 @@
 
 (defonce ^:private fn-reg (atom {}))
 
-(c/defn reg-fn! [k schema]
+(defn reg-fn! [k schema]
   (->> (assoc schema :db/ident k)
        (swap! fn-reg assoc k)))
 
-(def defn-args
+(def defunc-args
   (s/cat :name symbol :doc-string (s/? string?)
          :params (s/coll-of symbol? :kind vector?)
          :code (s/+ any?)))
 
-(s/fdef defn
-  :args defn-args)
+(s/fdef defunc
+  :args defunc-args)
 
-(defmacro defn [& args]
-  (let [{:keys [name doc-string params code]} (s/conform defn-args args)
+(defmacro defunc [& args]
+  (let [{:keys [name doc-string params code]} (s/conform defunc-args args)
         name (keyword name)
         schema (cond-> {:db/fn `(d/function '{:lang "clojure" :params ~params
                                               :requires [[clojure.core.reducers]]
                                               :code (do ~@code)
                                               })}
-                       doc-string (assoc :db/doc doc-string))]
+                 doc-string (assoc :db/doc doc-string))]
     `(reg-fn! ~name ~schema)))
 
 (defonce ^:private part-reg (atom #{}))
 
-(c/defn reg-part! [part]
+(defn reg-part! [part]
   (swap! part-reg conj part))
 
 (s/fdef defpart
@@ -106,7 +105,7 @@
 
 (s/fdef schema :args (s/cat) :ret ::ds/tx-data)
 
-(c/defn schema []
+(defn schema []
   (-> (mapv make-attr (vals @attr-reg))
       (into (map make-part) @part-reg)
       (into (vals @enum-reg))

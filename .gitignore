@@ -1,8 +1,5 @@
 /target/
 /.lein-*
 /.nrepl-port
-/.idea/
 /pom.xml
-/*.iml
-/CHANGELOG.md
-/test/
+/pom.xml.asc

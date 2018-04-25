@@ -27,13 +27,13 @@
 
 (defonce ^:private attr-reg (atom {}))
 
-(defn reg-attr! [k attr]
+(defn reg-attr! [ident attr]
   (let [defaults {:db/cardinality :db.cardinality/one}]
-    (->> (assoc (merge defaults attr) :db/ident k)
-         (swap! attr-reg assoc k))))
+    (->> (assoc (merge defaults attr) :db/ident ident)
+         (swap! attr-reg assoc ident))))
 
 (def defattr-args
-  (s/cat :k keyword? :doc-string (s/? string?)
+  (s/cat :ident keyword? :doc-string (s/? string?)
          :schema (s/keys* :req [:db/valueType])))
 
 (s/fdef defattr
@@ -41,10 +41,11 @@
 
 (defmacro defattr
   "Defines an attribute."
+  {:arglists '([ident doc-string? schema])}
   [& args]
-  (let [{:keys [k doc-string schema]} (s/conform defattr-args args)
+  (let [{:keys [ident doc-string schema]} (s/conform defattr-args args)
         schema (cond-> schema doc-string (assoc :db/doc doc-string))]
-    `(reg-attr! ~k ~schema)))
+    `(reg-attr! ~ident ~schema)))
 
 (defonce ^:private enum-reg (atom {}))
 
@@ -70,24 +71,27 @@
 
 (defonce ^:private fn-reg (atom {}))
 
-(defn reg-fn! [k schema]
-  (->> (assoc schema :db/ident k)
-       (swap! fn-reg assoc k)))
+(defn reg-fn! [name schema]
+  (->> (assoc schema :db/ident name)
+       (swap! fn-reg assoc name)))
 
 (def defunc-args
   (s/cat :name symbol :doc-string (s/? string?)
-         :params (s/coll-of symbol? :kind vector?)
-         :code (s/+ any?)))
+         :params (s/coll-of simple-symbol? :kind vector?)
+         :body (s/+ any?)))
 
 (s/fdef defunc
   :args defunc-args)
 
-(defmacro defunc [& args]
-  (let [{:keys [name doc-string params code]} (s/conform defunc-args args)
+(defmacro defunc
+  "Defines a database function."
+  {:arglists '([name doc-string? [params*] body])}
+  [& args]
+  (let [{:keys [name doc-string params body]} (s/conform defunc-args args)
         name (keyword name)
         schema (cond-> {:db/fn `(d/function '{:lang "clojure" :params ~params
                                               :requires [[clojure.core.reducers]]
-                                              :code (do ~@code)
+                                              :code (do ~@body)
                                               })}
                  doc-string (assoc :db/doc doc-string))]
     `(reg-fn! ~name ~schema)))

@@ -1,5 +1,7 @@
 # Datomic Tools
 
+[![Clojars Project](https://img.shields.io/clojars/v/org.clojars.akiel/datomic-tools.svg)](https://clojars.org/org.clojars.akiel/datomic-tools)
+
 Macros which allow to define Datomic schema entities like attributes and functions in multiple namespaces. All that schema information can be accessed by a function.
 
 ## Installation
@@ -7,8 +9,6 @@ Macros which allow to define Datomic schema entities like attributes and functio
 #### Leiningen
 
 Datomic Tools is available from [Clojars](https://clojars.org/org.clojars.akiel/datomic-tools).
-
-[![Clojars Project](https://img.shields.io/clojars/v/org.clojars.akiel/datomic-tools.svg)](https://clojars.org/org.clojars.akiel/datomic-tools)
 
 ## Usage
 

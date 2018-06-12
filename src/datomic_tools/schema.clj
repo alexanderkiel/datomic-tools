@@ -60,12 +60,15 @@
 (s/fdef defenum
   :args defenum-args)
 
-(defmacro defenum [& args]
-  (let [{:keys [k doc-string constants]} (s/conform defenum-args args)
+(defmacro defenum
+  "Defines an enum."
+  {:arglists '([ident doc-string? constants])}
+  [& args]
+  (let [{:keys [ident doc-string constants]} (s/conform defenum-args args)
         schema (cond-> {:db/valueType :db.type/ref}
                  doc-string (assoc :db/doc doc-string))]
     `(do
-       (reg-attr! ~k ~schema)
+       (reg-attr! ~ident ~schema)
        (doseq [c# ~constants]
          (reg-enum! :db.part/user c#)))))
 

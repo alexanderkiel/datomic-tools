@@ -8,6 +8,7 @@
   :pedantic? :abort
 
   :dependencies [[org.clojars.akiel/datomic-spec "0.1-alpha19"]
-                 [org.clojure/clojure "1.9.0"]]
+                 [org.clojure/clojure "1.9.0"]
+                 [org.clojure/core.specs.alpha "0.2.36"]]
 
   :profiles {:dev {:dependencies [[com.datomic/datomic-free "0.9.5656"]]}})

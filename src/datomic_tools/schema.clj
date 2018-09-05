@@ -1,5 +1,6 @@
 (ns datomic-tools.schema
   (:require
+    [clojure.core.specs.alpha :as core-specs]
     [clojure.spec.alpha :as s]
     [datomic.api :as d]
     [datomic-spec.core :as ds]))
@@ -78,8 +79,14 @@
   (->> (assoc schema :db/ident name)
        (swap! fn-reg assoc name)))
 
+(s/def ::requires
+  (s/spec
+    (s/* ::core-specs/libspec)))
+
 (def defunc-args
-  (s/cat :name symbol :doc-string (s/? string?)
+  (s/cat :name simple-symbol?
+         :doc-string (s/? string?)
+         :attr-map (s/? (s/keys :opt-un [::requires]))
          :params (s/coll-of simple-symbol? :kind vector?)
          :body (s/+ any?)))
 
@@ -88,14 +95,14 @@
 
 (defmacro defunc
   "Defines a database function."
-  {:arglists '([name doc-string? [params*] body])}
+  {:arglists '([name doc-string? attr-map? [params*] body])}
   [& args]
-  (let [{:keys [name doc-string params body]} (s/conform defunc-args args)
+  (let [{:keys [name doc-string attr-map params body]} (s/conform defunc-args args)
         name (keyword name)
+        {:keys [requires]} attr-map
         schema (cond-> {:db/fn `(d/function '{:lang "clojure" :params ~params
-                                              :requires [[clojure.core.reducers]]
-                                              :code (do ~@body)
-                                              })}
+                                             :requires ~(s/unform ::requires requires)
+                                             :code (do ~@body)})}
                  doc-string (assoc :db/doc doc-string))]
     `(reg-fn! ~name ~schema)))
 

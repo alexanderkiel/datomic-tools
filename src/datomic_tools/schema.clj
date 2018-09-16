@@ -84,7 +84,7 @@
     (s/* ::core-specs/libspec)))
 
 (def defunc-args
-  (s/cat :name simple-symbol?
+  (s/cat :name symbol?
          :doc-string (s/? string?)
          :attr-map (s/? (s/keys :opt-un [::requires]))
          :params (s/coll-of simple-symbol? :kind vector?)

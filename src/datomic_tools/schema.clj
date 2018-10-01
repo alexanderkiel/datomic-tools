@@ -55,7 +55,7 @@
        (swap! enum-reg assoc constant)))
 
 (def defenum-args
-  (s/cat :k keyword? :doc-string (s/? string?)
+  (s/cat :ident keyword? :doc-string (s/? string?)
          :constants (s/+ keyword?)))
 
 (s/fdef defenum
